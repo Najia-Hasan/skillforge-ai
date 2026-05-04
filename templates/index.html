@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SkillForge AI</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Google+Sans+Display:wght@400;500&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-base:#0c0d0e;--bg-surface:#141618;--bg-card:#1c1f22;--bg-hover:#272b30;--bg-input:#141618;
+  --border:#2d3339;--border-md:#3f464d;
+  --text-primary:#f0f2f4;--text-secondary:#9ca3af;--text-muted:#6b7280;
+  --blue:#10b981;--blue-dim:#064e3b;--blue-border:#065f46;
+  --teal:#64748b;--teal-dim:#1e293b;
+  --purple:#34d399;--purple-dim:#065f46;
+  --amber:#f59e0b;--amber-dim:#451a03;
+  --red:#ef4444;--red-dim:#450a0a;
+  --green:#10b981;--green-dim:#052e16;
+  --r:8px;--rl:12px;--rxl:20px;
+}
+html,body{height:100%;font-family:'Google Sans','Roboto',sans-serif;background:var(--bg-base);color:var(--text-primary);font-size:14px;line-height:1.6;overflow:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#ffffff18;border-radius:4px}
+.app{display:flex;height:100vh;width:100vw;overflow:hidden}
+
+/* sidebar */
+.sidebar{width:260px;flex-shrink:0;background:var(--bg-surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-header{padding:16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.logo-gem{width:36px;height:36px;border-radius:var(--r);background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 15px var(--blue-dim)}
+.logo-text{font-size:15px;font-weight:600;color:var(--text-primary);letter-spacing:-0.02em}
+.logo-sub{font-size:10px;color:var(--text-muted)}
+
+/* nav tabs */
+.nav-tabs{display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.nav-tab{flex:1;min-width:70px;padding:7px 4px;border-radius:var(--r);border:none;background:transparent;color:var(--text-secondary);font-family:'Google Sans',sans-serif;font-size:11px;cursor:pointer;transition:all 0.2s;text-align:center;font-weight:500;white-space:nowrap;}
+.nav-tab:hover{background:var(--bg-hover);color:var(--text-primary)}
+.nav-tab.active{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue-border)}
+
+.new-btn{margin:10px 12px;padding:9px 14px;border:1px solid var(--border);border-radius:var(--rxl);background:transparent;color:var(--blue);font-family:'Google Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;width:calc(100% - 24px)}
+.new-btn:hover{background:var(--blue-dim);border-color:var(--blue)}
+
+.sb-scroll{flex:1;overflow-y:auto;padding:6px 0}
+.s-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);padding:12px 14px 6px}
+.w-chips{padding:0 10px 10px;display:flex;flex-direction:column;gap:4px}
+.w-chip{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:var(--r);font-size:12px;cursor:pointer;transition:all 0.15s;border:1px solid}
+.w-chip:hover{opacity:0.8;transform:translateX(2px)}
+.w-chip.bad{background:var(--red-dim);border-color:#f28b8230;color:var(--red)}
+.w-chip.good{background:var(--green-dim);border-color:#81c99530;color:var(--green)}
+.w-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.w-empty{font-size:11.5px;color:var(--text-muted);padding:4px 12px;line-height:1.6}
+.hist-items{padding:4px 8px;display:flex;flex-direction:column;gap:2px}
+.h-item{padding:8px 10px;border-radius:var(--r);cursor:pointer;transition:background 0.15s}
+.h-item:hover{background:var(--bg-hover)}
+.h-item.active{background:var(--bg-card)}
+.h-title{font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.h-time{font-size:10px;color:var(--text-muted);margin-top:2px}
+
+/* interview history */
+.int-items{padding:4px 8px;display:flex;flex-direction:column;gap:4px}
+.int-item{padding:8px 10px;border-radius:var(--r);cursor:pointer;transition:background 0.15s;border:1px solid var(--border)}
+.int-item:hover{background:var(--bg-hover)}
+.int-role{font-size:12px;color:var(--text-secondary);font-weight:500}
+.int-meta{font-size:10px;color:var(--text-muted);margin-top:2px}
+.int-badge{display:inline-block;font-size:9px;padding:2px 6px;border-radius:8px;font-weight:600;margin-left:4px}
+.int-badge.done{background:var(--green-dim);color:var(--green)}
+.int-badge.prog{background:var(--amber-dim);color:var(--amber)}
+
+/* interview link button */
+.interview-cta{margin:8px 12px;padding:9px 14px;border:1px solid #c58af930;border-radius:var(--rxl);background:var(--purple-dim);color:var(--purple);font-family:'Google Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;width:calc(100% - 24px);text-decoration:none;justify-content:center}
+.interview-cta:hover{background:#2a1545;border-color:#c58af960}
+
+/* main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 22px;border-bottom:1px solid var(--border);background:var(--bg-base);flex-shrink:0;gap:12px;flex-wrap:wrap}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.status-ring{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#8ab4f8,#78d9b0);display:flex;align-items:center;justify-content:center;font-size:16px;animation:pulse 2s ease-in-out infinite}
+.topbar-title{font-size:14px;font-weight:500}
+.topbar-sub{font-size:11px;color:var(--text-muted)}
+.modes{display:flex;gap:6px;flex-wrap:wrap}
+.mode-pill{font-size:11.5px;padding:6px 14px;border-radius:var(--rxl);cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-family:'Google Sans',sans-serif;transition:all 0.2s;user-select:none;white-space:nowrap}
+.mode-pill:hover{border-color:var(--blue-border);color:var(--blue)}
+.mode-pill.on{background:var(--blue-dim);border-color:#8ab4f860;color:var(--blue);font-weight:500}
+
+.mem-bar{display:none;align-items:center;gap:8px;padding:8px 22px;background:var(--amber-dim);border-bottom:1px solid #fdd66320;overflow-x:auto;flex-shrink:0}
+.mem-bar.show{display:flex}
+.mem-bar-lbl{font-size:11px;color:var(--amber);font-weight:500;white-space:nowrap}
+.mem-tag{font-size:11px;padding:3px 10px;border-radius:12px;white-space:nowrap;cursor:pointer;background:var(--red-dim);border:1px solid #f28b8230;color:var(--red);transition:opacity 0.15s}
+.mem-tag:hover{opacity:0.7}
+
+.chat-area{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:18px}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:20px;text-align:center;padding:48px 24px;animation:fadeUp 0.5s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.w-greeting{font-family:'Google Sans Display',sans-serif;font-size:42px;font-weight:600;color:var(--text-primary);letter-spacing:-0.03em;line-height:1.1}
+.w-sub{font-size:16px;color:var(--text-secondary);max-width:480px;line-height:1.6}
+.sug-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--rl);padding:20px;cursor:pointer;text-align:left;transition:all 0.2s;display:flex;flex-direction:column;gap:12px;box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1)}
+.sug-card:hover{border-color:var(--border-md);background:var(--bg-hover);transform:translateY(-2px);box-shadow:0 10px 15px -3px rgb(0 0 0 / 0.1)}
+.sug-text{font-size:13px;color:var(--text-secondary);line-height:1.5;flex:1}
+.sug-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:640px;width:100%;margin-top:12px}
+
+/* interview CTA card in welcome */
+.int-welcome-card{background:linear-gradient(135deg,var(--purple-dim),#1a0d30);border:1px solid #c58af930;border-radius:var(--rl);padding:18px 20px;cursor:pointer;text-align:left;transition:all 0.2s;max-width:560px;width:100%;display:flex;align-items:center;gap:14px;text-decoration:none}
+.int-welcome-card:hover{border-color:#c58af960;transform:translateY(-2px);box-shadow:0 8px 24px #c58af920}
+.int-welcome-icon{font-size:28px;flex-shrink:0}
+.int-welcome-text h3{font-size:14px;font-weight:600;color:var(--purple);margin-bottom:4px}
+.int-welcome-text p{font-size:12.5px;color:var(--text-secondary)}
+
+.msg-row{display:flex;gap:12px;align-items:flex-start;animation:msgIn 0.25s ease}
+.msg-row.user-row{flex-direction:row-reverse}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.msg-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;margin-top:2px}
+.ai-av{background:linear-gradient(135deg,#8ab4f8,#c58af9,#78d9b0)}
+.user-av{background:linear-gradient(135deg,#78d9b0,#8ab4f8)}
+.bubble{max-width:72%;padding:12px 16px;font-size:13.5px;line-height:1.7;border-radius:var(--rl)}
+.ai-bubble{background:var(--bg-card);border:1px solid var(--border);border-top-left-radius:4px;color:var(--text-primary)}
+.user-bubble{background:var(--blue-dim);border:1px solid var(--blue-border);border-top-right-radius:4px;color:var(--blue)}
+.mode-tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:3px 8px;border-radius:20px;font-weight:500;margin-bottom:7px;letter-spacing:0.04em;text-transform:uppercase;border:1px solid}
+.tag-eli5{background:var(--teal-dim);border-color:#78d9b030;color:var(--teal)}
+.tag-exam{background:var(--amber-dim);border-color:#fdd66330;color:var(--amber)}
+.typing-bub{display:flex;align-items:center;gap:5px;padding:14px 18px}
+.td{width:7px;height:7px;border-radius:50%;background:var(--text-muted);animation:tdB 1.2s ease-in-out infinite}
+.td:nth-child(2){animation-delay:.15s}.td:nth-child(3){animation-delay:.3s}
+@keyframes tdB{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-6px);opacity:1}}
+
+.input-area{padding:14px 22px 18px;background:var(--bg-base);flex-shrink:0;border-top:1px solid var(--border)}
+.quick-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.qchip{font-size:12px;padding:5px 12px;border-radius:var(--rxl);background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;font-family:'Google Sans',sans-serif;transition:all 0.2s;white-space:nowrap}
+.qchip:hover{border-color:var(--blue-border);color:var(--blue);background:var(--blue-dim)}
+.input-box{display:flex;align-items:flex-end;gap:10px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--rxl);padding:10px 10px 10px 18px;transition:border-color 0.2s,box-shadow 0.2s}
+.input-box:focus-within{border-color:#8ab4f840;box-shadow:0 0 0 3px #8ab4f810}
+#q-input{flex:1;background:transparent;border:none;outline:none;font-size:14px;font-family:'Google Sans','Roboto',sans-serif;color:var(--text-primary);resize:none;min-height:24px;max-height:120px;line-height:1.6;padding:4px 0}
+#q-input::placeholder{color:var(--text-muted)}
+.input-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:all 0.15s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text-primary)}
+.icon-btn.recording{color:var(--red);background:var(--red-dim);animation:recPulse 1s ease-in-out infinite}
+@keyframes recPulse{0%,100%{box-shadow:0 0 0 0 #f28b8240}50%{box-shadow:0 0 0 6px #f28b8200}}
+#send-btn{width:40px;height:40px;border-radius:var(--r);border:none;background:var(--blue);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all 0.2s}
+#send-btn:hover{background:var(--blue-dim);box-shadow:0 0 15px var(--blue-dim)}
+#send-btn:disabled{background:var(--bg-hover);color:var(--text-muted);transform:none;box-shadow:none;cursor:default}
+.input-hint{font-size:10.5px;color:var(--text-muted);text-align:center;margin-top:8px}
+@media(max-width:700px){.sidebar{display:none}.bubble{max-width:88%}.sug-grid{grid-template-columns:1fr}.w-greeting{font-size:24px}}
+.ac-indicator{position:fixed;top:10px;right:10px;background:var(--red-dim);color:var(--red);border:1px solid var(--red);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;display:none;align-items:center;gap:6px;z-index:9999;box-shadow:0 0 10px var(--red-dim)}
+.ac-indicator.active{display:flex}
+.ac-dot{width:6px;height:6px;background:var(--red);border-radius:50%;animation:pulse-red 1s infinite}
+@keyframes pulse-red{0%{opacity:1}50%{opacity:0.3}100%{opacity:1}}
+#proctor-overlay {
+    transition: all 0.3s ease;
+    border: 1px solid var(--blue-border);
+}
+#proctor-overlay:hover {
+    opacity: 0.3; /* Make it transparent when hovering so user can see content behind it if needed */
+}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="sb-header">
+    <div class="logo-gem">🚀</div>
+    <div><div class="logo-text">SkillForge AI</div><div class="logo-sub">Your AI Career Coach · Free</div></div>
+  </div>
+  <div id="b2b-cta-container" style="padding: 0 12px; margin-top: 10px;">
+    <button class="new-btn" style="border-color:var(--amber); color:var(--amber); background: var(--amber-dim); margin: 0; width: 100%; justify-content: center; font-weight: bold; border-width: 2px;" onclick="showSidebarTab('recruiter', document.getElementById('recruiter-tab-btn'))">
+      💼 ENTERPRISE DASHBOARD
+    </button>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showSidebarTab('tutor',this)">📚 Tutor</button>
+    <button class="nav-tab" onclick="showSidebarTab('interview',this)">🎯 Interview</button>
+    <button class="nav-tab" onclick="showSidebarTab('quiz',this)">📝 Quiz</button>
+    <button class="nav-tab" onclick="showSidebarTab('roadmap',this)">🛣️ Roadmap</button>
+    <button class="nav-tab" id="recruiter-tab-btn" style="color:var(--amber); border-color:var(--amber-dim);" onclick="showSidebarTab('recruiter',this)">💼 B2B</button>
+  </div>
+
+  <div id="sb-profile-btn" style="padding: 10px 12px; border-top: 1px solid var(--border); margin-top: auto;">
+    <button class="nav-tab" style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px;" onclick="showSidebarTab('profile',this)">
+      👤 Profile
+    </button>
+  </div>
+  
+  <div id="anti-cheat-status" class="ac-indicator">
+    <div class="ac-dot"></div>
+    <span>ANTI-CHEAT ACTIVE</span>
+  </div>
+
+  <!-- Tutor sidebar -->
+  <div id="sb-tutor">
+    <button class="new-btn" onclick="newChat()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      New conversation
+    </button>
+    <div class="sb-scroll">
+      <div class="s-label">Weak Areas</div>
+      <div class="w-chips" id="weak-list"><div class="w-empty">Ask questions to track your weak spots.</div></div>
+      <div class="s-label" style="margin-top:8px;border-top:1px solid var(--border);padding-top:14px">Recent Chats</div>
+      <div class="hist-items" id="hist-list"><div class="w-empty">No history yet.</div></div>
+    </div>
+  </div>
+
+  <!-- Interview sidebar -->
+  <div id="sb-interview" style="display:none">
+    <a class="interview-cta" href="/interview">
+      🎯 Start New Interview
+    </a>
+    <div class="sb-scroll">
+      <div class="s-label">Past Sessions</div>
+      <div class="int-items" id="int-list"><div class="w-empty">No sessions yet.</div></div>
+    </div>
+  </div>
+
+  <!-- Quiz sidebar -->
+  <div id="sb-quiz" style="display:none">
+    <button class="new-btn" onclick="startQuizMode()">
+      📝 Take New Quiz
+    </button>
+    <div class="sb-scroll">
+      <div class="s-label">Performance Chart</div>
+      <div style="padding:10px;"><canvas id="quiz-chart" width="200" height="200"></canvas></div>
+      <div class="s-label">Top Weak Areas</div>
+      <div class="w-chips" id="quiz-progress-list"><div class="w-empty">Complete quizzes to see analysis.</div></div>
+    </div>
+  </div>
+
+  <!-- Roadmap sidebar -->
+  <div id="sb-roadmap" style="display:none">
+    <button class="new-btn" onclick="startRoadmapMode()">
+      🛣️ New Roadmap
+    </button>
+    <div class="sb-scroll">
+      <div class="s-label">Your Roadmaps</div>
+      <div class="hist-items" id="roadmap-list"><div class="w-empty">No roadmaps yet.</div></div>
+    </div>
+  </div>
+
+  <!-- Profile sidebar -->
+  <div id="sb-profile" style="display:none">
+    <div class="sb-scroll">
+      <div class="s-label">Account</div>
+      <div style="padding: 10px 14px;">
+        <div id="sb-username" style="font-weight: 600; font-size: 14px; color: var(--text-primary);">User</div>
+        <div id="sb-email" style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">email@example.com</div>
+        <a href="/logout" class="new-btn" style="text-decoration: none; justify-content: center; border-color: var(--red); color: var(--red); background: var(--red-dim);">
+          Log Out
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recruiter sidebar -->
+  <div id="sb-recruiter" style="display:none">
+    <button class="new-btn" style="border-color:var(--amber); color:var(--amber);" onclick="showRecruiterDashboard()">
+      💼 Recruiter Dashboard
+    </button>
+    <div class="sb-scroll">
+      <div class="s-label">Market Intelligence</div>
+      <div style="padding: 10px 14px; color: var(--text-secondary); font-size: 11px;">
+        B2B Mode: Organizations can monitor candidate performance and verification scores here.
+      </div>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="status-ring">🤖</div>
+      <div><div class="topbar-title">SkillForge AI</div><div class="topbar-sub" id="status-sub">Welcome, {{ session.username }}</div></div>
+    </div>
+    <div class="modes">
+      <div class="mode-pill on" id="pill-normal" onclick="setMode('normal')">Normal</div>
+      <div class="mode-pill" id="pill-eli5" onclick="setMode('eli5')">✨ ELI5</div>
+      <div class="mode-pill" id="pill-exam" onclick="setMode('exam')">📝 Exam</div>
+    </div>
+  </div>
+  <div class="mem-bar" id="mem-bar"><span class="mem-bar-lbl">⚠ Revise:</span><div id="mem-tags"></div></div>
+  <div class="chat-area" id="chat-area">
+    <div class="welcome" id="welcome">
+      <div class="w-greeting">Hello, there 👋<br/>How can I help today?</div>
+      <div class="w-sub">Ask doubts, get explanations, practice problems, or build a study plan.</div>
+      <div class="sug-grid">
+        <div class="sug-card" onclick="fillQ('Explain recursion with a real-life example')"><div class="sug-text">Explain recursion with a real-life example</div><div class="sug-icon">🔁</div></div>
+        <div class="sug-card" onclick="fillQ('What is Big-O notation and why does it matter?')"><div class="sug-text">What is Big-O notation and why does it matter?</div><div class="sug-icon">📊</div></div>
+        <div class="sug-card" onclick="fillQ('Give me a 7-day DSA study plan')"><div class="sug-text">Create a 7-day DSA study plan for me</div><div class="sug-icon">📅</div></div>
+        <div class="sug-card" onclick="fillQ('Practice question on SQL joins with solution')"><div class="sug-text">Practice question on SQL joins with solution</div><div class="sug-icon">💡</div></div>
+      </div>
+      <a class="int-welcome-card" href="/interview">
+        <div class="int-welcome-icon">🎯</div>
+        <div class="int-welcome-text"><h3>Mock Interview Mode</h3><p>Practice HR, Technical & Behavioral questions with real-time AI feedback and scoring</p></div>
+        <span style="color:var(--purple);font-size:18px;margin-left:auto">→</span>
+      </a>
+    </div>
+  </div>
+  <div class="input-area">
+    <div class="quick-row">
+      <div class="qchip" onclick="fillQ('Give me an example')">Give example</div>
+      <div class="qchip" onclick="fillQ('Simplify this further')">Simplify</div>
+      <div class="qchip" onclick="fillQ('Give me a practice problem on this topic')">Practice problem</div>
+      <div class="qchip" onclick="fillQ('What should I study next?')">What to study next</div>
+    </div>
+    <div class="input-box">
+      <textarea id="q-input" placeholder="Ask SkillForge AI anything…" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <div class="input-actions">
+        <button class="icon-btn" id="voice-btn" title="Voice input" onclick="toggleVoice()">🎤</button>
+        <button id="send-btn" onclick="send()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="input-hint">Enter to send · Shift+Enter for new line · 🎤 for voice input</div>
+  </div>
+</main>
+</div>
+
+<script>
+let mode='normal',convoId=null,busy=false,recognition=null,isRecording=false;
+
+function setMode(m){mode=m;['normal','eli5','exam'].forEach(x=>document.getElementById('pill-'+x).classList.toggle('on',x===m))}
+function fillQ(t){const el=document.getElementById('q-input');el.value=t;autoResize(el);el.focus()}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px'}
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}
+function esc(s){
+    if (!s) return "";
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showSidebarTab(tab,btn){
+  if(isQuizActive && tab !== 'quiz') {
+    if(!confirm("Switching tabs will end your current quiz. Continue?")) return;
+    disableAntiCheat();
+    newChat();
+  }
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sb-tutor').style.display = tab==='tutor'?'':'none';
+  document.getElementById('sb-interview').style.display = tab==='interview'?'':'none';
+  document.getElementById('sb-quiz').style.display = tab==='quiz'?'':'none';
+  document.getElementById('sb-roadmap').style.display = tab==='roadmap'?'':'none';
+  document.getElementById('sb-profile').style.display = tab==='profile'?'':'none';
+  document.getElementById('sb-recruiter').style.display = tab==='recruiter'?'':'none';
+  if(tab==='interview') loadIntSessions();
+  if(tab==='roadmap') {
+    loadRoadmaps();
+    startRoadmapMode(); 
+  }
+  if(tab==='recruiter') showRecruiterDashboard();
+  if(tab==='quiz') loadQuizStats();
+  if(tab==='profile') loadProfile();
+}
+
+function formatText(text){
+  let h=esc(text);
+  h=h.replace(/```([\s\S]*?)```/g,'<pre style="background:var(--bg-base);border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px 0;overflow-x:auto;font-family:monospace;font-size:12px;color:#81c995;line-height:1.6">$1</pre>');
+  h=h.replace(/`([^`]+)`/g,'<code style="background:var(--bg-base);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;color:#78d9b0">$1</code>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h=h.replace(/^[-•]\s(.+)$/gm,'<li style="margin-left:16px;margin-bottom:3px">$1</li>');
+  h=h.replace(/\n/g,'<br>');
+  return h;
+}
+
+function addMsg(role,content,msgMode){
+  const area=document.getElementById('chat-area');
+  const w=document.getElementById('welcome');if(w)w.remove();
+  const row=document.createElement('div');row.className='msg-row'+(role==='user'?' user-row':'');
+  const av=document.createElement('div');av.className='msg-av '+(role==='user'?'user-av':'ai-av');av.textContent=role==='user'?'🧑':'✦';
+  const wrap=document.createElement('div');
+  if(role==='assistant'&&msgMode&&msgMode!=='normal'){
+    const tag=document.createElement('div');tag.className='mode-tag tag-'+msgMode;tag.textContent=msgMode==='eli5'?'✨ ELI5 Mode':'📝 Exam Mode';wrap.appendChild(tag);
+  }
+  const bub=document.createElement('div');bub.className='bubble '+(role==='user'?'user-bubble':'ai-bubble');
+  if(role==='user')bub.textContent=content;else bub.innerHTML=formatText(content);
+  wrap.appendChild(bub);row.appendChild(av);row.appendChild(wrap);area.appendChild(row);area.scrollTop=area.scrollHeight;
+}
+
+function showTyping(){const area=document.getElementById('chat-area');const row=document.createElement('div');row.className='msg-row';row.id='typing-row';const av=document.createElement('div');av.className='msg-av ai-av';av.textContent='✦';const bub=document.createElement('div');bub.className='bubble ai-bubble typing-bub';bub.innerHTML='<div class="td"></div><div class="td"></div><div class="td"></div>';row.appendChild(av);row.appendChild(bub);area.appendChild(row);area.scrollTop=area.scrollHeight}
+function removeTyping(){const t=document.getElementById('typing-row');if(t)t.remove()}
+
+async function send(){
+  if(busy)return;
+  const input=document.getElementById('q-input');const text=input.value.trim();if(!text)return;
+  busy=true;document.getElementById('send-btn').disabled=true;document.getElementById('status-sub').textContent='Thinking…';
+  addMsg('user',text);input.value='';input.style.height='auto';const usedMode=mode;showTyping();
+  try{
+    const res=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:text,mode:usedMode,conversation_id:convoId})});
+    const data=await res.json();removeTyping();
+    if(data.error){addMsg('assistant','⚠ Error: '+data.error)}
+    else{convoId=data.conversation_id;addMsg('assistant',data.answer,usedMode);if(data.weak_topics?.length)showMemBar(data.weak_topics);loadWeakTopics();loadHistory()}
+    document.getElementById('status-sub').textContent='Ready to help you learn';
+  }catch(err){removeTyping();addMsg('assistant','⚠ Connection error. Is Flask running on port 5000?');document.getElementById('status-sub').textContent='Error'}
+  busy=false;document.getElementById('send-btn').disabled=false;
+}
+
+function showMemBar(topics){
+  const bar=document.getElementById('mem-bar'),tags=document.getElementById('mem-tags');
+  tags.innerHTML='';
+  topics.forEach(t=>{const el=document.createElement('div');el.className='mem-tag';el.textContent=t;el.onclick=()=>fillQ('Help me revise '+t+' with examples.');tags.appendChild(el)});
+  bar.classList.add('show');
+}
+
+// Voice input
+function toggleVoice(){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    alert('Voice input not supported in this browser. Use Chrome.');return;
+  }
+  if(isRecording){recognition.stop();return}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.lang='en-US';recognition.interimResults=false;
+  recognition.onstart=()=>{isRecording=true;document.getElementById('voice-btn').classList.add('recording')};
+  recognition.onresult=(e)=>{const t=e.results[0][0].transcript;fillQ(document.getElementById('q-input').value+(document.getElementById('q-input').value?' ':'')+t)};
+  recognition.onend=()=>{isRecording=false;document.getElementById('voice-btn').classList.remove('recording')};
+  recognition.start();
+}
+
+async function loadWeakTopics(){
+  try{const res=await fetch('/api/weak-topics');const data=await res.json();const list=document.getElementById('weak-list');list.innerHTML='';
+  if(!data.weak.length&&!data.strong.length){list.innerHTML='<div class="w-empty">Ask questions to track weak areas.</div>';return}
+  data.weak.forEach(t=>{const el=document.createElement('div');el.className='w-chip bad';el.innerHTML='<div class="w-dot"></div>'+t;el.onclick=()=>fillQ('Explain '+t+' with examples.');list.appendChild(el)});
+  data.strong.forEach(t=>{const el=document.createElement('div');el.className='w-chip good';el.innerHTML='<div class="w-dot"></div>'+t+' ✓';list.appendChild(el)})}catch(_){}
+}
+
+async function loadHistory(){
+  try{const res=await fetch('/api/history');const data=await res.json();const list=document.getElementById('hist-list');list.innerHTML='';
+  if(!data.length){list.innerHTML='<div class="w-empty">No history yet.</div>';return}
+  data.forEach(c=>{const el=document.createElement('div');el.className='h-item'+(c.id===convoId?' active':'');const d=new Date(c.created_at);el.innerHTML=`<div class="h-title">${esc(c.title)}</div><div class="h-time">${d.toLocaleDateString([],{month:'short',day:'numeric'})}</div>`;el.onclick=()=>loadConvo(c.id);list.appendChild(el)})}catch(_){}
+}
+
+async function loadIntSessions(){
+  try{const res=await fetch('/api/interview/sessions');const data=await res.json();const list=document.getElementById('int-list');list.innerHTML='';
+  if(!data.length){list.innerHTML='<div class="w-empty">No sessions yet.</div>';return}
+  data.forEach(s=>{const el=document.createElement('div');el.className='int-item';const badge=s.completed?'<span class="int-badge done">Done</span>':'<span class="int-badge prog">In Progress</span>';el.innerHTML=`<div class="int-role">${esc(s.role)}${badge}</div><div class="int-meta">${esc(s.name)} · ${s.question_count} Qs</div>`;el.onclick=()=>{if(s.completed)window.location.href='/interview?score='+s.id;else window.location.href='/interview?resume='+s.id};list.appendChild(el)})}catch(_){}
+}
+
+async function loadConvo(id){
+  try{const res=await fetch('/api/conversation/'+id);const data=await res.json();if(data.error)return;convoId=id;document.getElementById('chat-area').innerHTML='';data.messages.forEach(m=>addMsg(m.role,m.content,m.mode));loadHistory()}catch(_){}
+}
+
+function newChat(){
+  disableAntiCheat();
+  convoId=null;document.getElementById('mem-bar').classList.remove('show');document.getElementById('chat-area').innerHTML=`<div class="welcome" id="welcome"><div class="w-greeting">Hello, there 👋<br/>How can I help today?</div><div class="w-sub">Ask doubts, explanations, practice problems, or study plans.</div><div class="sug-grid"><div class="sug-card" onclick="fillQ('Explain recursion with a real-life example')"><div class="sug-text">Explain recursion with a real-life example</div><div class="sug-icon">🔁</div></div><div class="sug-card" onclick="fillQ('What is Big-O notation?')"><div class="sug-text">What is Big-O notation?</div><div class="sug-icon">📊</div></div><div class="sug-card" onclick="fillQ('Give me a 7-day DSA study plan')"><div class="sug-text">7-day DSA study plan</div><div class="sug-icon">📅</div></div><div class="sug-card" onclick="fillQ('Practice question on SQL joins')"><div class="sug-text">Practice question on SQL joins</div><div class="sug-icon">💡</div></div></div><a class="int-welcome-card" href="/interview"><div class="int-welcome-icon">🎯</div><div class="int-welcome-text"><h3>Mock Interview Mode</h3><p>Practice HR, Technical & Behavioral questions with AI feedback</p></div><span style="color:var(--purple);font-size:18px;margin-left:auto">→</span></a></div>`;document.getElementById('q-input').focus();loadHistory()}
+
+// --- ADAPTIVE LEARNING (QUIZ) ---
+async function startQuizMode() {
+    const area = document.getElementById('chat-area');
+    area.innerHTML = `
+        <div class="welcome" style="max-width:500px; margin:0 auto;">
+            <h2 style="color:var(--blue); margin-bottom:12px;">Adaptive Learning Quiz</h2>
+            <p style="color:var(--text-secondary); margin-bottom:20px;">What topic would you like to be quizzed on today?</p>
+            <div class="input-box" style="width:100%; margin-bottom:16px;">
+                <input id="quiz-topic-input" style="width:100%; background:transparent; border:none; color:var(--text-primary); outline:none;" placeholder="e.g. Data Structures, Python, SQL Basics..." value="General CS">
+            </div>
+            
+            <p style="color:var(--text-secondary); margin-bottom:12px;">Select Difficulty:</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <label style="flex: 1; padding: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; text-align: center;">
+                    <input type="radio" name="quiz-diff" value="Moderate" checked style="margin-right: 8px;"> Moderate
+                </label>
+                <label style="flex: 1; padding: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; text-align: center;">
+                    <input type="radio" name="quiz-diff" value="Hard" style="margin-right: 8px;"> Hard
+                </label>
+            </div>
+
+            <div style="margin-bottom: 20px; padding: 12px; background: var(--bg-card); border: 1px solid var(--blue-border); border-radius: var(--r);">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="proctor-mode-toggle" style="width: 16px; height: 16px;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--blue);">Enable Proctor Mode (Beta)</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">Webcam monitoring, face detection, and eye tracking.</div>
+                    </div>
+                </label>
+            </div>
+            
+            <button id="gen-quiz-btn" class="new-btn" style="width:100%;">🚀 Generate Quiz (10 Questions)</button>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:12px;">The system will adapt based on your previous performance and chosen difficulty.</p>
+        </div>
+    `;
+    
+    document.getElementById('gen-quiz-btn').onclick = async () => {
+        const topicInput = document.getElementById('quiz-topic-input');
+        const topic = topicInput.value.trim() || "General CS";
+        const difficulty = document.querySelector('input[name="quiz-diff"]:checked').value;
+        isProctorEnabled = document.getElementById('proctor-mode-toggle').checked;
+        
+        area.innerHTML = '<div class="welcome"><h3>Generating Adaptive Quiz...</h3><div class="td"></div><div class="td"></div><div class="td"></div><p style="margin-top:20px; color:var(--text-secondary);">This may take 10-15 seconds for 10 questions.</p></div>';
+        
+        try {
+            const res = await fetch('/api/quiz/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({topic, difficulty})
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || `Server returned ${res.status}`);
+            renderQuiz(data);
+        } catch (err) {
+            area.innerHTML = `<div class="welcome"><h3 style="color:var(--red);">Quiz Error</h3><p style="margin:10px 0;">${err.message}</p><button class="new-btn" onclick="startQuizMode()">Try Again</button></div>`;
+        }
+    };
+}
+
+function renderQuiz(quiz) {
+    // Enable Anti-Cheat
+    enableAntiCheat();
+
+    const area = document.getElementById('chat-area');
+    area.innerHTML = `<div style="max-width:600px; margin:0 auto; padding:20px;">
+        <h2 style="margin-bottom:20px; color:var(--blue);">Adaptive Quiz: ${quiz.topic}</h2>
+        <div id="quiz-container"></div>
+        <button id="submit-quiz-btn" class="new-btn" style="margin-top:20px; width:100%;">Submit Quiz</button>
+    </div>`;
+    
+    const container = document.getElementById('quiz-container');
+    quiz.questions.forEach((q, idx) => {
+        const qDiv = document.createElement('div');
+        qDiv.style.marginBottom = '24px';
+        qDiv.style.padding = '16px';
+        qDiv.style.background = 'var(--bg-card)';
+        qDiv.style.borderRadius = 'var(--r)';
+        qDiv.innerHTML = `
+            <p style="font-weight:600; margin-bottom:12px;">${idx+1}. ${esc(q.question)}</p>
+            ${q.options.map((opt, oIdx) => `
+                <label style="display:block; margin-bottom:8px; cursor:pointer;">
+                    <input type="radio" name="q${idx}" value="${oIdx}" style="margin-right:8px;">
+                    ${esc(opt)}
+                </label>
+            `).join('')}
+        `;
+        container.appendChild(qDiv);
+    });
+    
+    document.getElementById('submit-quiz-btn').onclick = () => submitQuiz(quiz);
+}
+
+async function submitQuiz(quiz) {
+    let score = 0;
+    const weakAreas = [];
+    const failedIndices = [];
+    
+    quiz.questions.forEach((q, idx) => {
+        const sel = document.querySelector(`input[name="q${idx}"]:checked`);
+        if (sel && parseInt(sel.value) === q.answer) {
+            score++;
+        } else {
+            failedIndices.push(idx);
+            weakAreas.push(...(q.tags || []));
+        }
+    });
+    
+    await fetch('/api/quiz/submit', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            topic: quiz.topic,
+            difficulty: quiz.difficulty,
+            score: score,
+            total: quiz.questions.length,
+            weak_areas: weakAreas,
+            all_questions: quiz.questions,
+            failed_indices: failedIndices
+        })
+    });
+    
+    alert(`Quiz Complete! Your Score: ${score}/${quiz.questions.length}\n${score < quiz.questions.length ? "We've noted your weak areas for the next quiz." : "Perfect score! Keep it up."}`);
+    
+    // Disable Anti-Cheat
+    disableAntiCheat();
+
+    loadQuizStats(); // Refresh stats
+    newChat();
+}
+
+let quizChartInstance = null;
+async function loadQuizStats() {
+    try {
+        const res = await fetch('/api/quiz/stats');
+        const data = await res.json();
+        
+        // Update weak topics list
+        const list = document.getElementById('quiz-progress-list');
+        list.innerHTML = '';
+        if (!data.weak_topics.length) {
+            list.innerHTML = '<div class="w-empty">Complete quizzes to see analysis.</div>';
+        } else {
+            data.weak_topics.forEach(t => {
+                const el = document.createElement('div');
+                el.className = 'w-chip bad';
+                el.innerHTML = `<div class="w-dot"></div>${esc(t.topic)} (${t.count})`;
+                el.onclick = () => {
+                    const area = document.getElementById('chat-area');
+                    area.innerHTML = `
+                        <div class="welcome">
+                            <h3>Focus: ${esc(t.topic)}</h3>
+                            <p>You've struggled with this topic ${t.count} times. Let's improve it.</p>
+                            <button class="new-btn" onclick="fillQ('Explain ${esc(t.topic)} with simple examples')">Get Explanation</button>
+                            <button class="new-btn" onclick="startQuizModeWithTopic('${esc(t.topic)}')">Take Focused Quiz</button>
+                        </div>
+                    `;
+                };
+                list.appendChild(el);
+            });
+        }
+        
+        // Update Chart
+        const ctx = document.getElementById('quiz-chart').getContext('2d');
+        const topics = Object.keys(data.history);
+        const avgScores = topics.map(t => {
+            const scores = data.history[t];
+            return (scores.reduce((a, b) => a + b.score, 0) / scores.reduce((a, b) => a + b.total, 0)) * 100;
+        });
+        
+        if (quizChartInstance) quizChartInstance.destroy();
+        
+        if (topics.length > 0) {
+            quizChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: topics,
+                    datasets: [{
+                        label: 'Avg Score %',
+                        data: avgScores,
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#10b981'
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { display: false },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                            pointLabels: { color: '#9ca3af', font: { size: 10 } }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    } catch (_) {}
+}
+
+function startQuizModeWithTopic(topic) {
+    const area = document.getElementById('chat-area');
+    area.innerHTML = `
+        <div class="welcome" style="max-width:500px; margin:0 auto;">
+            <h2 style="color:var(--blue); margin-bottom:12px;">Focused Quiz: ${esc(topic)}</h2>
+            <p style="color:var(--text-secondary); margin-bottom:20px;">Ready to strengthen your knowledge in this area?</p>
+            
+            <div style="margin-bottom: 20px; padding: 12px; background: var(--bg-card); border: 1px solid var(--blue-border); border-radius: var(--r);">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="proctor-mode-toggle-focused" style="width: 16px; height: 16px;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--blue);">Enable Proctor Mode (Beta)</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">Webcam monitoring, face detection, and eye tracking.</div>
+                    </div>
+                </label>
+            </div>
+            
+            <button id="start-focused-quiz-btn" class="new-btn" style="width:100%; justify-content: center;">🚀 Start Focused Quiz</button>
+        </div>
+    `;
+    
+    document.getElementById('start-focused-quiz-btn').onclick = () => {
+        isProctorEnabled = document.getElementById('proctor-mode-toggle-focused').checked;
+        fetchQuiz(topic);
+    };
+}
+
+async function fetchQuiz(topic, difficulty = "Moderate") {
+    const area = document.getElementById('chat-area');
+    area.innerHTML = '<div class="welcome"><h3>Generating Adaptive Quiz...</h3><div class="td"></div><div class="td"></div><div class="td"></div><p style="margin-top:20px; color:var(--text-secondary);">This may take 10-15 seconds for 10 questions.</p></div>';
+    try {
+        const res = await fetch('/api/quiz/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({topic, difficulty})
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `Server returned ${res.status}`);
+        renderQuiz(data);
+    } catch (err) {
+        area.innerHTML = `<div class="welcome"><h3 style="color:var(--red);">Quiz Error</h3><p style="margin:10px 0;">${err.message}</p><button class="new-btn" onclick="startQuizMode()">Try Again</button></div>`;
+    }
+}
+
+// --- AI CAREER COACH (ROADMAP) ---
+async function startRoadmapMode() {
+    const area = document.getElementById('chat-area');
+    area.innerHTML = `
+        <div class="welcome" style="max-width:500px; margin:0 auto;">
+            <h2 style="color:var(--blue); margin-bottom:12px;">AI Career Coach & Evaluation</h2>
+            <p style="color:var(--text-secondary); margin-bottom:20px;">Upload your resume text, pick a target role, and select your skill level for a complete career evaluation and 30-day roadmap.</p>
+            <textarea id="roadmap-resume" class="input-box" style="width:100%; min-height:150px; margin-bottom:12px; padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r); color: var(--text-primary);" placeholder="Paste resume text here..."></textarea>
+            <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <input id="roadmap-role" class="input-box" style="flex: 1; padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r); color: var(--text-primary);" placeholder="Target Role (e.g. SDE)">
+                <select id="roadmap-level" class="input-box" style="width: 120px; padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r); color: var(--text-primary);">
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+            </div>
+            <button id="gen-roadmap-btn" class="new-btn" style="width:100%; justify-content: center;">Generate Evaluation & Roadmap</button>
+        </div>
+    `;
+    
+    document.getElementById('gen-roadmap-btn').onclick = async () => {
+        const resume = document.getElementById('roadmap-resume').value.trim();
+        const role = document.getElementById('roadmap-role').value.trim();
+        const level = document.getElementById('roadmap-level').value;
+        if (!role) return alert("Please provide a target role.");
+        
+        const btn = document.getElementById('gen-roadmap-btn');
+        btn.disabled = true;
+        btn.textContent = "Analyzing & Generating...";
+        
+        try {
+            let skills = [];
+            if (resume) {
+                // First parse resume to get skills
+                const pRes = await fetch('/api/interview/parse-resume', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: resume})
+                });
+                const pData = await pRes.json();
+                skills = pData.skills || [];
+            }
+            
+            // Then generate roadmap & evaluation
+            const rRes = await fetch('/api/roadmap/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({role, skills, level})
+            });
+            const rData = await rRes.json();
+            if (!rRes.ok || rData.error) {
+                console.error("Roadmap API Error:", rData.error || "Unknown error");
+                throw new Error(rData.error || `Server returned ${rRes.status}`);
+            }
+            renderRoadmap(rData);
+            loadRoadmaps(); // Refresh sidebar history
+        } catch (err) {
+            console.error("Roadmap Error Detail:", err);
+            alert("Roadmap Error: " + err.message);
+            btn.disabled = false;
+            btn.textContent = "Generate Evaluation & Roadmap";
+        }
+    };
+}
+
+function renderRoadmap(data) {
+    const area = document.getElementById('chat-area');
+    
+    // Check if it's the new advanced format or the old format
+    const isAdv = data.market_alignment && data.skill_verification;
+    
+    let html = `
+        <div id="roadmap-report-container" style="max-width:800px; margin:0 auto; padding:20px; height: 100%; display: flex; flex-direction: column; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="color:var(--blue); margin-bottom:0;">${isAdv ? 'Career Evaluation & Roadmap' : 'Career Roadmap'}: ${esc(data.target_role || '')}</h2>
+                <button class="new-btn" style="width:auto; margin:0; border-color:var(--green); color:var(--green);" onclick="downloadPDF('roadmap-report-container', 'Career_Evaluation_${esc(data.target_role || 'Report')}')">
+                    📥 Download PDF
+                </button>
+            </div>
+    `;
+
+    if (isAdv) {
+        const ma = data.market_alignment;
+        const sv = data.skill_verification;
+        
+        html += `
+            <div class="card" style="margin-bottom: 24px; padding: 20px; border-left: 4px solid var(--blue); background: var(--bg-card); border-radius: var(--r);">
+                <h3 style="margin-top:0;">1. Market Alignment Analysis</h3>
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="font-size: 24px; font-weight: bold; color: var(--blue);">${ma.match_percentage}% Match</div>
+                    <div style="padding: 4px 12px; background: var(--bg-app); border: 1px solid var(--border); border-radius: 12px; font-size: 14px;">Level: ${ma.readiness}</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <strong>Strong Skills:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px; color: var(--text-secondary);">${ma.strong_skills.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+                    </div>
+                    <div>
+                        <strong>Missing Critical:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px; color: #ff6b6b;">${ma.missing_critical_skills.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <strong>Next Priority:</strong> ${ma.top_3_priority.join(', ')}
+                </div>
+                <div style="margin-top: 15px;">
+                    <strong>Suggestions:</strong> ${ma.suggestions.join('. ')}
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 24px; padding: 20px; border-left: 4px solid #4ecdc4; background: var(--bg-card); border-radius: var(--r);">
+                <h3 style="margin-top:0;">2. Skill Verification Challenge</h3>
+                <h4 style="color: #4ecdc4; margin: 10px 0;">${esc(sv.title)}</h4>
+                <p><strong>Scenario:</strong> ${esc(sv.scenario)}</p>
+                <div style="background: var(--bg-app); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <strong>Problem:</strong> ${esc(sv.problem)}
+                </div>
+                <p><strong>Constraints:</strong> ${sv.constraints.join(', ')}</p>
+                <p><strong>Expected Output:</strong> ${esc(sv.expected_output)}</p>
+                <p><strong>Evaluation Criteria:</strong> ${sv.evaluation_criteria.map(c => `${esc(c.criterion)} (${c.score}pts)`).join(', ')}</p>
+            </div>
+
+            <div class="card" style="margin-bottom: 24px; padding: 20px; border-left: 4px solid #ff9f43; background: var(--bg-card); border-radius: var(--r);">
+                <h3 style="margin-top:0;">3. Oral Justification (Anti-Cheat)</h3>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${data.anti_cheat_oral.map(q => `
+                        <div style="padding: 10px; background: var(--bg-app); border-radius: 8px;">
+                            <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; font-weight: bold;">${q.type}</span>
+                            <div style="margin-top: 4px; color: var(--text-primary);">${esc(q.question)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    } else {
+        html += `<p style="color:var(--text-secondary); margin-bottom:24px;">${esc(data.summary || '')}</p>`;
+    }
+
+    html += `<h3 style="margin-bottom: 15px; color: var(--text-primary);">4. 30-Day Intensive Roadmap</h3>`;
+    html += `<div id="roadmap-weeks"></div></div>`;
+    
+    area.innerHTML = html;
+
+    const container = document.getElementById('roadmap-weeks');
+    (data.roadmap || []).forEach(week => {
+        const wDiv = document.createElement('div');
+        wDiv.style.marginBottom = '20px';
+        wDiv.style.padding = '16px';
+        wDiv.style.background = 'var(--bg-card)';
+        wDiv.style.borderLeft = '4px solid var(--blue)';
+        wDiv.style.borderRadius = 'var(--r)';
+        wDiv.innerHTML = `
+            <h3 style="margin-bottom:8px; color:var(--text-primary);">Week ${week.week}: ${esc(week.focus)}</h3>
+            <ul style="margin-bottom:12px; padding-left:20px; color:var(--text-secondary);">
+                ${week.tasks.map(t => `<li>${esc(t)}</li>`).join('')}
+            </ul>
+            <div style="font-size:12px;">
+                <strong style="color:var(--blue);">Resources:</strong>
+                ${week.resources.map(r => `<a href="${r.url}" target="_blank" style="color:var(--teal); margin-left:8px; text-decoration:none;">${esc(r.name)}</a>`).join(', ')}
+            </div>
+        `;
+        container.appendChild(wDiv);
+    });
+}
+
+async function loadRoadmaps() {
+    try {
+        const res = await fetch('/api/roadmap/history');
+        if (!res.ok) throw new Error("History fetch failed");
+        const data = await res.json();
+        const list = document.getElementById('roadmap-list');
+        list.innerHTML = '';
+        if (!data.length) {
+            list.innerHTML = '<div class="w-empty">No roadmaps yet.</div>';
+            return;
+        }
+        data.forEach(r => {
+            const el = document.createElement('div');
+            el.className = 'h-item';
+            el.innerHTML = `<div class="h-title">${esc(r.role)}</div><div class="h-time">${new Date(r.created_at).toLocaleDateString()}</div>`;
+            el.onclick = async () => {
+                const det = await (await fetch(`/api/roadmap/${r.id}`)).json();
+                renderRoadmap(det);
+            };
+            list.appendChild(el);
+        });
+    } catch (_) {}
+}
+
+// --- PROFILE ---
+async function loadProfile() {
+    try {
+        const res = await fetch('/api/profile');
+        const data = await res.json();
+        
+        document.getElementById('sb-username').textContent = data.username;
+        document.getElementById('sb-email').textContent = data.email;
+
+        // Control visibility of Admin/B2B tabs
+        const b2bCta = document.getElementById('b2b-cta-container');
+        const b2bTab = document.getElementById('recruiter-tab-btn');
+        if (b2bCta) b2bCta.style.display = data.is_admin ? 'block' : 'none';
+        if (b2bTab) b2bTab.style.display = data.is_admin ? 'block' : 'none';
+        
+        const area = document.getElementById('chat-area');
+        area.innerHTML = `
+            <div class="welcome" style="max-width:600px; margin:0 auto; text-align: left; align-items: flex-start;">
+                <h2 style="color:var(--blue); margin-bottom:24px;">Your Profile</h2>
+                
+                <div class="setup-card" style="width: 100%; background: var(--bg-card); padding: 24px; border-radius: var(--rl); border: 1px solid var(--border);">
+                    <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 24px;">
+                        <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 32px;">👤</div>
+                        <div>
+                            <div style="font-size: 20px; font-weight: 600;">${esc(data.full_name || data.username)}</div>
+                            <div style="color: var(--text-muted); font-size: 14px;">Member since ${new Date(data.created_at).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="margin-bottom: 16px;">
+                        <label class="form-label" style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Username</label>
+                        <div style="padding: 10px; background: var(--bg-base); border-radius: var(--r); color: var(--text-muted);">${esc(data.username)}</div>
+                    </div>
+
+                    <div class="form-row" style="margin-bottom: 16px;">
+                        <label class="form-label" style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Email</label>
+                        <div style="padding: 10px; background: var(--bg-base); border-radius: var(--r); color: var(--text-muted);">${esc(data.email)}</div>
+                    </div>
+
+                    <div class="form-row" style="margin-bottom: 16px;">
+                        <label class="form-label" style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Full Name</label>
+                        <input id="p-full-name" class="input-box" style="width:100%;" value="${esc(data.full_name || '')}" placeholder="Your full name">
+                    </div>
+
+                    <div class="form-row" style="margin-bottom: 24px;">
+                        <label class="form-label" style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Bio / Career Goals</label>
+                        <textarea id="p-bio" class="input-box" style="width:100%; min-height:100px;" placeholder="Tell us about your career journey...">${esc(data.bio || '')}</textarea>
+                    </div>
+
+                    <button onclick="saveProfile()" class="new-btn" style="width: 100%; justify-content: center;">Save Changes</button>
+                </div>
+            </div>
+        `;
+    } catch (_) {}
+}
+
+async function saveProfile() {
+    const full_name = document.getElementById('p-full-name').value;
+    const bio = document.getElementById('p-bio').value;
+    
+    try {
+        const res = await fetch('/api/profile/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({full_name, bio})
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            alert('Profile updated successfully!');
+            loadProfile();
+        }
+    } catch (err) {
+        alert('Error updating profile');
+    }
+}
+
+// --- RECRUITER DASHBOARD ---
+async function showRecruiterDashboard() {
+    const area = document.getElementById('chat-area');
+    area.innerHTML = `<div class="welcome"><h3>Loading Recruiter Analytics...</h3></div>`;
+    
+    try {
+        const res = await fetch('/api/recruiter/candidates');
+        const candidates = await res.json();
+        
+        let html = `
+            <div style="max-width:1000px; margin:0 auto; padding:20px; height: 100%; display: flex; flex-direction: column; overflow-y: auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                    <h2 style="color:var(--amber);">💼 Recruiter Dashboard (B2B)</h2>
+                    <div class="tag" style="border-color:var(--amber); color:var(--amber);">Enterprise Mode</div>
+                </div>
+                
+                <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r); overflow:hidden;">
+                    <table style="width:100%; border-collapse:collapse; text-align:left;">
+                        <thead style="background:var(--bg-surface); border-bottom:1px solid var(--border);">
+                            <tr>
+                                <th style="padding:12px 16px; font-size:12px; color:var(--text-secondary);">CANDIDATE</th>
+                                <th style="padding:12px 16px; font-size:12px; color:var(--text-secondary);">TARGET ROLE</th>
+                                <th style="padding:12px 16px; font-size:12px; color:var(--text-secondary);">VERIFIED SKILL SCORE</th>
+                                <th style="padding:12px 16px; font-size:12px; color:var(--text-secondary);">CHEAT PROBABILITY</th>
+                                <th style="padding:12px 16px; font-size:12px; color:var(--text-secondary);">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        candidates.forEach(c => {
+            const skillColor = c.skill_score > 70 ? 'var(--green)' : (c.skill_score > 40 ? 'var(--amber)' : 'var(--red)');
+            const cheatColor = c.cheat_probability > 50 ? 'var(--red)' : (c.cheat_probability > 20 ? 'var(--amber)' : 'var(--green)');
+            
+            html += `
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:16px; font-weight:500;">${esc(c.username)}</td>
+                    <td style="padding:16px; color:var(--text-secondary);">${esc(c.target_role)}</td>
+                    <td style="padding:16px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="flex:1; height:6px; background:var(--bg-app); border-radius:3px; overflow:hidden; min-width:80px;">
+                                <div style="width:${c.skill_score}%; height:100%; background:${skillColor};"></div>
+                            </div>
+                            <span style="color:${skillColor}; font-weight:bold;">${c.skill_score}%</span>
+                        </div>
+                    </td>
+                    <td style="padding:16px;">
+                        <span style="color:${cheatColor}; padding:4px 8px; background:var(--bg-app); border-radius:12px; font-size:12px; font-weight:600;">
+                            ${c.cheat_probability}% Probable
+                        </span>
+                    </td>
+                    <td style="padding:16px;">
+                        <button class="new-btn" style="margin:0; width:auto; padding:6px 12px; font-size:11px;" onclick="showCandidateDetail(${c.id})">View Report</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `</tbody></table></div></div>`;
+        area.innerHTML = html;
+    } catch (err) {
+        area.innerHTML = `<div class="welcome"><h3 style="color:var(--red);">Access Denied</h3><p>${err.message}</p></div>`;
+    }
+}
+
+async function showCandidateDetail(uid) {
+    const area = document.getElementById('chat-area');
+    area.innerHTML = `<div class="welcome"><h3>Generating Detailed Report...</h3></div>`;
+    
+    try {
+        const res = await fetch(`/api/recruiter/candidate/${uid}`);
+        const data = await res.json();
+        
+        let html = `
+            <div id="candidate-report-container" style="max-width:800px; margin:0 auto; padding:20px; height: 100%; display: flex; flex-direction: column; overflow-y: auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                    <div style="display:flex; gap:15px; align-items:center;">
+                        <button class="new-btn" style="width:auto; margin:0;" onclick="showRecruiterDashboard()">← Back</button>
+                        <h2 style="color:var(--blue); margin:0;">Candidate Report: ${esc(data.username)}</h2>
+                    </div>
+                    <button class="new-btn" style="width:auto; margin:0; border-color:var(--amber); color:var(--amber);" onclick="downloadPDF('candidate-report-container', 'Candidate_Report_${esc(data.username)}')">
+                        📥 Export PDF
+                    </button>
+                </div>
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
+                    <div class="card" style="padding:20px; background:var(--bg-card);">
+                        <h3 style="margin-top:0; font-size:14px; color:var(--text-secondary);">Verified Quizzes</h3>
+                        <div style="margin-top:12px;">
+                            ${data.quizzes.length ? data.quizzes.map(q => `
+                                <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+                                    <span>${esc(q.topic)} (${q.difficulty})</span>
+                                    <span style="font-weight:bold; color:var(--blue);">${q.score}/${q.total}</span>
+                                </div>
+                            `).join('') : '<div style="color:var(--text-muted);">No quizzes taken.</div>'}
+                        </div>
+                    </div>
+                    
+                    <div class="card" style="padding:20px; background:var(--bg-card);">
+                        <h3 style="margin-top:0; font-size:14px; color:var(--text-secondary);">Anti-Cheat Log</h3>
+                        <div style="margin-top:12px;">
+                            ${data.violations.length ? data.violations.map(v => `
+                                <div style="margin-bottom:8px; font-size:12px; color:var(--red);">
+                                    <strong>${esc(v.type)}</strong>: ${esc(v.details)}
+                                    <div style="color:var(--text-muted); font-size:10px;">${new Date(v.date).toLocaleString()}</div>
+                                </div>
+                            `).join('') : '<div style="color:var(--green);">No violations recorded.</div>'}
+                        </div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-bottom:12px;">Career Aspirations</h3>
+                <div class="card" style="padding:20px; background:var(--bg-card);">
+                    ${data.roadmaps.length ? data.roadmaps.map(r => `
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                            <span>${esc(r.role)}</span>
+                            <span style="color:var(--text-muted);">${new Date(r.date).toLocaleDateString()}</span>
+                        </div>
+                    `).join('') : 'No roadmap generated.'}
+                </div>
+            </div>
+        `;
+        area.innerHTML = html;
+    } catch (err) {
+        console.error("Candidate detail error:", err);
+        alert("Failed to load candidate details: " + err.message);
+    }
+}
+
+function downloadPDF(elementId, filename) {
+    const element = document.getElementById(elementId);
+    const opt = {
+        margin:       10,
+        filename:     filename + '.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0c0d0e' },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    
+    // Temporarily hide buttons for the PDF
+    const buttons = element.querySelectorAll('button');
+    buttons.forEach(b => b.style.display = 'none');
+    
+    html2pdf().set(opt).from(element).save().then(() => {
+        // Show buttons again
+        buttons.forEach(b => b.style.display = '');
+    });
+}
+
+// --- ANTI-CHEAT ---
+let cheatStream = null;
+let cheatInterval = null;
+let isQuizActive = false;
+
+async function startWebcam() {
+    try {
+        cheatStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        document.getElementById('cheat-video').srcObject = cheatStream;
+    } catch (err) {
+        console.error("Webcam access denied", err);
+        alert("Webcam access is required for the quiz. Please enable it and try again.");
+        return false;
+    }
+    return true;
+}
+
+function stopWebcam() {
+    if (cheatStream) {
+        cheatStream.getTracks().forEach(track => track.stop());
+        cheatStream = null;
+    }
+}
+
+async function captureSnapshot(isReference = false) {
+    const video = document.getElementById('cheat-video');
+    const canvas = document.getElementById('cheat-canvas');
+    if (!video.srcObject) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const imageData = canvas.toDataURL('image/jpeg', 0.7);
+
+    try {
+        await fetch('/api/anticheat/snapshot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageData, is_reference: isReference })
+        });
+    } catch (err) {
+        console.error("Failed to send snapshot", err);
+    }
+}
+
+async function logViolation(violation, details = "") {
+    try {
+        await fetch('/api/anticheat/log-violation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ violation, details })
+        });
+    } catch (err) {
+        console.error("Failed to log violation", err);
+    }
+}
+
+function handleVisibilityChange() {
+    if ((document.hidden || !document.hasFocus()) && isQuizActive) {
+        logViolation("Window/Tab Switch", "User left the quiz window or tab");
+        showToast("Anti-Cheat Warning: Window switching detected and logged.", "error");
+    }
+}
+
+function preventCopyPaste(e) {
+    if (isQuizActive) {
+        e.preventDefault();
+        e.stopPropagation();
+        showToast("Anti-Cheat: Copy/Paste is disabled during quiz.", "error");
+        return false;
+    }
+}
+
+function preventRightClick(e) {
+    if (isQuizActive) {
+        e.preventDefault();
+        showToast("Anti-Cheat: Right-click is disabled during quiz.", "error");
+    }
+}
+
+function preventDevTools(e) {
+    if (isQuizActive) {
+        // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+        if (e.keyCode === 123 || 
+           (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) || 
+           (e.ctrlKey && e.keyCode === 85)) {
+            e.preventDefault();
+            logViolation("DevTools Attempt", "User tried to open developer tools");
+            showToast("Anti-Cheat: Developer tools are disabled.", "error");
+        }
+    }
+}
+
+// Automatically load profile on start to check admin status
+document.addEventListener('DOMContentLoaded', loadProfile);
+
+let isProctorEnabled = false;
+let proctorInterval = null;
+let modelsLoaded = false;
+let objectModel = null;
+
+async function loadProctorModels() {
+    if (modelsLoaded) return true;
+    try {
+        // Use a more reliable CDN path for models
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            cocoSsd.load().then(model => objectModel = model)
+        ]);
+        modelsLoaded = true;
+        return true;
+    } catch (e) {
+        console.error("Failed to load proctoring models", e);
+        showToast("Proctoring Error: Could not load AI models.", "error");
+        return false;
+    }
+}
+
+async function startProctoring() {
+    if (!isProctorEnabled) return;
+    
+    const overlay = document.getElementById('proctor-overlay');
+    const video = document.getElementById('proctor-video');
+    const statusDot = document.getElementById('proctor-status-dot');
+    const warningText = document.getElementById('proctor-warnings');
+    
+    overlay.style.display = 'block';
+    
+    if (await loadProctorModels()) {
+        try {
+            // Reuse the existing stream if available to avoid multiple camera requests
+            let stream = cheatStream;
+            if (!stream) {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+            }
+            video.srcObject = stream;
+            
+            // Wait for video to actually start playing
+            if (video.readyState >= 1) {
+                // Already loaded, just play
+                video.play();
+            } else {
+                // Wait for metadata to load
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+                video.play();
+            }
+
+            let violationCounter = 0;
+            let phoneDetectionCounter = 0;
+            
+            proctorInterval = setInterval(async () => {
+                if (!isQuizActive || video.paused || video.ended) return;
+                
+                // 1. Face Detection
+                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.2 });
+                const detections = await faceapi.detectSingleFace(video, options).withFaceLandmarks();
+                
+                // 2. Object Detection (Phone)
+                let phoneDetected = false;
+                if (objectModel) {
+                    const predictions = await objectModel.detect(video);
+                    phoneDetected = predictions.some(p => p.class === 'cell phone' && p.score > 0.6);
+                }
+
+                if (phoneDetected) {
+                    phoneDetectionCounter++;
+                    statusDot.style.background = 'var(--red)';
+                    warningText.innerText = 'MOBILE PHONE DETECTED!';
+                    if (phoneDetectionCounter > 2) {
+                        logViolation("Proctoring", "Mobile phone detected in camera");
+                        phoneDetectionCounter = 0;
+                    }
+                } else if (!detections) {
+                    violationCounter++;
+                    statusDot.style.background = 'var(--red)';
+                    warningText.innerText = 'NO FACE DETECTED!';
+                    
+                    if (violationCounter > 3) {
+                        logViolation("Proctoring", "No face detected in camera for several seconds");
+                        violationCounter = 0;
+                    }
+                } else {
+                    violationCounter = 0;
+                    phoneDetectionCounter = 0;
+                    statusDot.style.background = 'var(--green)';
+                    warningText.innerText = '';
+                    
+                    // Basic eye tracking / head orientation check
+                    const landmarks = detections.landmarks;
+                    const nose = landmarks.getNose();
+                    const leftEye = landmarks.getLeftEye();
+                    const rightEye = landmarks.getRightEye();
+                    
+                    const eyeCenter = (leftEye[0].x + rightEye[3].x) / 2;
+                    const noseTip = nose[3].x;
+                    const diff = Math.abs(noseTip - eyeCenter);
+                    
+                    if (diff > 25) {
+                        statusDot.style.background = 'var(--amber)';
+                        warningText.innerText = 'FOCUS ON SCREEN!';
+                        logViolation("Proctoring", "User looking away from screen");
+                    }
+                }
+            }, 1000);
+        } catch (e) {
+            console.error("Webcam access denied for proctoring", e);
+            showToast("Proctoring Error: Webcam access denied.", "error");
+            overlay.style.display = 'none';
+        }
+    }
+}
+
+function stopProctoring() {
+    if (proctorInterval) clearInterval(proctorInterval);
+    const video = document.getElementById('proctor-video');
+    if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+    }
+    document.getElementById('proctor-overlay').style.display = 'none';
+}
+
+async function enableAntiCheat() {
+    isQuizActive = true;
+    document.getElementById('anti-cheat-status').classList.add('active');
+    
+    // Enforce Fullscreen
+    try {
+        if (!document.fullscreenElement) {
+            await document.documentElement.requestFullscreen();
+        }
+    } catch (err) {
+        console.error("Fullscreen failed", err);
+    }
+
+    // Capture Reference Photo
+    if (await startWebcam()) {
+        setTimeout(() => captureSnapshot(true), 1500); // Wait for camera to adjust
+        
+        // Start periodic snapshots every 1 minute for better detection
+        cheatInterval = setInterval(() => captureSnapshot(false), 1 * 60 * 1000);
+    }
+
+    if (isProctorEnabled) {
+        await startProctoring();
+    }
+
+    // Global Event Listeners
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleVisibilityChange);
+    window.addEventListener('copy', preventCopyPaste, true);
+    window.addEventListener('paste', preventCopyPaste, true);
+    window.addEventListener('contextmenu', preventRightClick, true);
+    window.addEventListener('keydown', preventDevTools, true);
+    
+    // Check if user exits fullscreen
+    document.onfullscreenchange = () => {
+        if (!document.fullscreenElement && isQuizActive) {
+            logViolation("Exit Fullscreen", "User exited fullscreen mode");
+            showToast("Anti-Cheat Warning: Exiting fullscreen is not allowed.", "error");
+            // Attempt to re-enter fullscreen
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
+    };
+}
+
+function disableAntiCheat() {
+    isQuizActive = false;
+    document.getElementById('anti-cheat-status').classList.remove('active');
+    
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+    }
+    
+    stopWebcam();
+    stopProctoring();
+    if (cheatInterval) clearInterval(cheatInterval);
+    
+    window.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('blur', handleVisibilityChange);
+    window.removeEventListener('copy', preventCopyPaste, true);
+    window.removeEventListener('paste', preventCopyPaste, true);
+    window.removeEventListener('contextmenu', preventRightClick, true);
+    window.removeEventListener('keydown', preventDevTools, true);
+    document.onfullscreenchange = null;
+}
+
+loadWeakTopics();loadHistory();
+</script>
+  <div id="toast-container"></div>
+  <div id="proctor-overlay" style="display:none; position:fixed; top:20px; right:20px; width:200px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r); padding:10px; z-index:10000; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+    <div style="font-size:11px; color:var(--blue); font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
+        <span>PROCTOR MODE</span>
+        <span id="proctor-status-dot" style="width:8px; height:8px; border-radius:50%; background:var(--green);"></span>
+    </div>
+    <video id="proctor-video" autoplay playsinline style="width:100%; height:120px; border-radius:4px; background:#000; object-fit:cover;"></video>
+    <div id="proctor-warnings" style="font-size:10px; color:var(--red); margin-top:5px; min-height:15px; text-align:center;"></div>
+  </div>
+  <video id="cheat-video" style="display:none" autoplay playsinline></video>
+  <canvas id="cheat-canvas" style="display:none"></canvas>
+</body>
+</html>
